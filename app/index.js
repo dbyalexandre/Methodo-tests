@@ -47,7 +47,7 @@ const groupedData = jsonData.reduce((acc, obj) => {
 
 // Fonction pour appliquer la logique de série
 const applySerieLogic = sessionData => {
-  let serie = 0
+  let pratique = false
   const datesMap = {}
 
   return sessionData.map(item => {
@@ -59,7 +59,7 @@ const applySerieLogic = sessionData => {
         allongeTrueAssisTrue: false,
         allongeTrueAssisFalse: false,
         allongeFalseAssisTrue: false,
-        serieIncremented: false,
+        // serieIncremented: false,
       }
     }
 
@@ -67,41 +67,37 @@ const applySerieLogic = sessionData => {
 
     if (item.Niveau === 1) {
       dateInfo.level1Count += 1
-      if (item.Allonge === "True" && item.Assis === "False") {
-        dateInfo.allongeTrueAssisFalse = true
-      }
-      if (item.Allonge === "False" && item.Assis === "True") {
-        dateInfo.allongeFalseAssisTrue = true
-      }
-      if (item.Allonge === "True" && item.Assis === "True") {
-        dateInfo.allongeTrueAssisTrue = true
-      }
     }
 
     if (item.Niveau === 2) {
       dateInfo.level2Count += 1
-      if (item.Allonge === "True" && item.Assis === "False") {
-        dateInfo.allongeTrueAssisFalse = true
-      }
-      if (item.Allonge === "False" && item.Assis === "True") {
-        dateInfo.allongeFalseAssisTrue = true
-      }
-      if (item.Allonge === "True" && item.Assis === "True") {
-        dateInfo.allongeTrueAssisTrue = true
-      }
+    }
+
+    if (item.Allonge === "True" && item.Assis === "True") {
+      dateInfo.allongeTrueAssisTrue = true
+    }
+
+    if (item.Allonge === "True" && item.Assis === "False") {
+      dateInfo.allongeTrueAssisFalse = true
+    }
+
+    if (item.Allonge === "False" && item.Assis === "True") {
+      dateInfo.allongeFalseAssisTrue = true
     }
 
     if (
-      !dateInfo.serieIncremented &&
+      //   !dateInfo.serieIncremented &&
       (dateInfo.level1Count >= 2 || dateInfo.level2Count >= 1) &&
       (dateInfo.allongeTrueAssisTrue ||
         (dateInfo.allongeTrueAssisFalse && dateInfo.allongeFalseAssisTrue))
     ) {
-      serie += 1
-      dateInfo.serieIncremented = true
+      pratique = true
+      //   dateInfo.serieIncremented = true
+    } else {
+      pratique = false
     }
 
-    return { ...item, serie }
+    return { ...item, pratique }
   })
 }
 
@@ -112,7 +108,7 @@ Object.keys(groupedData).forEach(sessionID => {
   groupedData[sessionID] = updatedSessionData
 })
 
-let csvContent = "Date,Niveau,Allonge,Assis,SessionID,formattedDate,serie\n"
+let csvContent = "Date,Niveau,Allonge,Assis,SessionID,formattedDate,pratique\n"
 
 Object.keys(groupedData).forEach(sessionID => {
   const sessionData = groupedData[sessionID]
@@ -125,7 +121,7 @@ Object.keys(groupedData).forEach(sessionID => {
       item.Assis,
       item.SessionID,
       item.formattedDate,
-      item.serie,
+      item.pratique,
     ].join(",")
     csvContent += row + "\n"
   })
