@@ -1,0 +1,39 @@
+{
+    "env": {
+        "browser": true,
+        "es2021": true,
+        "node": true
+    },
+    "extends": [
+        "eslint:recommended",
+        "prettier"
+    ],
+    "plugins": [
+        "prettier",
+        "simple-import-sort"
+    ],
+    "overrides": [
+    ],
+    "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "module"
+    },
+    "rules": { 
+        "no-empty": "warn",
+        "no-useless-catch": 1,
+        "no-useless-constructor": "off",
+        "no-control-regex": "off",
+        "no-eval": "off",
+        "no-empty-pattern": "warn",
+        "no-empty-character-class": "off",
+        "prettier/prettier": 1,
+        "prefer-const": "warn",
+        "no-unused-vars": "off",
+        "no-empty-function": "off",
+        "array-callback-return": "off",
+        "no-useless-rename": 1,
+        "object-shorthand": 1,
+        "simple-import-sort/imports": 1,
+        "simple-import-sort/exports": 1
+    }
+}
