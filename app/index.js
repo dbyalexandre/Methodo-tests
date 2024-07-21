@@ -48,9 +48,10 @@ const groupedData = jsonData.reduce((acc, obj) => {
 // Fonction pour appliquer la logique de série
 const applySerieLogic = sessionData => {
   let pratique = false
+  let serie = 0
   const datesMap = {}
 
-  return sessionData.map(item => {
+  sessionData.forEach(item => {
     const date = item.formattedDate
     if (!datesMap[date]) {
       datesMap[date] = {
@@ -59,7 +60,9 @@ const applySerieLogic = sessionData => {
         allongeTrueAssisTrue: false,
         allongeTrueAssisFalse: false,
         allongeFalseAssisTrue: false,
-        // serieIncremented: false,
+        serie: 0,
+        hasTruePractice: false,
+        serieIncremented: false,
       }
     }
 
@@ -91,13 +94,45 @@ const applySerieLogic = sessionData => {
       (dateInfo.allongeTrueAssisTrue ||
         (dateInfo.allongeTrueAssisFalse && dateInfo.allongeFalseAssisTrue))
     ) {
-      pratique = true
+      dateInfo.hasTruePractice = true
       //   dateInfo.serieIncremented = true
     } else {
-      pratique = false
+      dateInfo.hasTruePractice = false
+    }
+  })
+
+  // Deuxième passe pour appliquer la logique de série
+  return sessionData.map((item, index, arr) => {
+    const date = item.formattedDate
+    if (!date) return { ...item, pratique: false, serie: 0 }
+
+    const dateInfo = datesMap[date]
+    pratique = dateInfo.hasTruePractice
+    if (pratique) {
+      if (index > 0 && arr[index - 1] && arr[index - 1].formattedDate) {
+        if (!dateInfo.serieIncremented) {
+          const previousDate = arr[index - 1].formattedDate
+          const previousDateObj = new Date(previousDate.split("/").reverse().join("-"))
+          const currentDateObj = new Date(date.split("/").reverse().join("-"))
+          const differenceInDays = (currentDateObj - previousDateObj) / 86400000
+
+          if (differenceInDays === 1) {
+            serie += 1
+            dateInfo.serieIncremented = true
+          } else {
+            serie = 0
+          }
+        }
+      } else {
+        serie = 0
+      }
+    } else {
+      serie = 0
     }
 
-    return { ...item, pratique }
+    datesMap[date].serie = serie
+
+    return { ...item, pratique, serie }
   })
 }
 
@@ -108,7 +143,7 @@ Object.keys(groupedData).forEach(sessionID => {
   groupedData[sessionID] = updatedSessionData
 })
 
-let csvContent = "Date,Niveau,Allonge,Assis,SessionID,formattedDate,pratique\n"
+let csvContent = "Date,Niveau,Allonge,Assis,SessionID,formattedDate,pratique,serie\n"
 
 Object.keys(groupedData).forEach(sessionID => {
   const sessionData = groupedData[sessionID]
@@ -122,6 +157,7 @@ Object.keys(groupedData).forEach(sessionID => {
       item.SessionID,
       item.formattedDate,
       item.pratique,
+      item.serie,
     ].join(",")
     csvContent += row + "\n"
   })
@@ -130,3 +166,5 @@ Object.keys(groupedData).forEach(sessionID => {
 // Écrire le contenu CSV dans un nouveau fichier
 const outputCsvFilePath = path.join(__dirname, "out.csv")
 fs.writeFileSync(outputCsvFilePath, csvContent)
+
+console.log("Le fichier out.csv a été créé avec succès.")
