@@ -8,23 +8,19 @@ const convertExcelDate = excelDate => {
   const day = String(date.getUTCDate()).padStart(2, "0")
   const month = String(date.getUTCMonth() + 1).padStart(2, "0")
   const year = date.getUTCFullYear()
-  return `${month}/${day}/${year}` // Inverser jour et mois ici
+  return `${month}/${day}/${year}`
 }
 
 const __filename = url.fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Lire le fichier CSV
 const csvFilePath = path.join(__dirname, "in.csv")
 const fileContent = fs.readFileSync(csvFilePath, "utf8")
 
-// Convertir le contenu CSV en workbook
 const workbook = XLSX.read(fileContent, { type: "string" })
 
-// Accéder à la première feuille du workbook
 const worksheet = workbook.Sheets[workbook.SheetNames[0]]
 
-// Convertir la feuille en JSON (optionnel)
 const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: true })
 
 jsonData.forEach(item => {
@@ -42,13 +38,10 @@ const groupedData = jsonData.reduce((acc, obj) => {
   return acc
 }, {})
 
-// console.log(groupedData["07912340-1f8c-4d4d-8921-24c258ea8709"])
-// console.log(groupedData["ed73e2a7-8f8a-493c-9388-c7cc4714b0ad"])
-
-// Fonction pour appliquer la logique de série
 const applySerieLogic = sessionData => {
   let serie = 0
   let vie = 2
+  let consecutiveDays = 0
   const datesMap = {}
 
   return sessionData.map((item, index) => {
@@ -107,8 +100,14 @@ const applySerieLogic = sessionData => {
         !dateInfo.serieIncremented
       ) {
         serie += 1
-        dateInfo.serieIncremented = true // Reset to avoid multiple increments on the same day
+        dateInfo.serieIncremented = true
+        consecutiveDays += 1
       }
+    }
+
+    if (consecutiveDays === 5) {
+      vie = Math.min(vie + 1, 2)
+      consecutiveDays = 0
     }
 
     if (
@@ -116,26 +115,26 @@ const applySerieLogic = sessionData => {
       !dateInfo.vieDecremented &&
       (index === sessionData.length - 1 || sessionData[index + 1].formattedDate !== date)
     ) {
-      vie -= 1 // Perd une vie si les conditions ne sont pas remplies
+      vie -= 1
+      consecutiveDays = 0
       if (vie <= 0) {
-        serie = 0 // Réinitialise la série si toutes les vie sont perdues
-        vie = 2 // Réinitialise les vie à 2
+        serie = 0
+        vie = 2
       }
-      dateInfo.vieDecremented = true // Empêche les vies d'être diminuées plusieurs fois dans la même journée
+      dateInfo.vieDecremented = true
     }
 
-    return { ...item, vie, serie }
+    return { ...item, serie }
   })
 }
 
-// Appliquer la logique de série à chaque groupe
 Object.keys(groupedData).forEach(sessionID => {
   const sessionData = groupedData[sessionID]
   const updatedSessionData = applySerieLogic(sessionData)
   groupedData[sessionID] = updatedSessionData
 })
 
-let csvContent = "Date,Niveau,Allonge,Assis,SessionID,formattedDate,vie,serie\n"
+let csvContent = "Date,Niveau,Allonge,Assis,SessionID,formattedDate,serie\n"
 
 Object.keys(groupedData).forEach(sessionID => {
   const sessionData = groupedData[sessionID]
@@ -148,14 +147,12 @@ Object.keys(groupedData).forEach(sessionID => {
       item.Assis,
       item.SessionID,
       item.formattedDate,
-      item.vie,
       item.serie,
     ].join(",")
     csvContent += row + "\n"
   })
 })
 
-// Écrire le contenu CSV dans un nouveau fichier
 const outputCsvFilePath = path.join(__dirname, "out.csv")
 fs.writeFileSync(outputCsvFilePath, csvContent)
 
