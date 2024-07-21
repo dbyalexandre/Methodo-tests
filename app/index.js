@@ -47,11 +47,11 @@ const groupedData = jsonData.reduce((acc, obj) => {
 
 // Fonction pour appliquer la logique de série
 const applySerieLogic = sessionData => {
-  let pratique = false
   let serie = 0
+  let vie = 2
   const datesMap = {}
 
-  sessionData.forEach(item => {
+  return sessionData.map((item, index) => {
     const date = item.formattedDate
     if (!datesMap[date]) {
       datesMap[date] = {
@@ -60,9 +60,9 @@ const applySerieLogic = sessionData => {
         allongeTrueAssisTrue: false,
         allongeTrueAssisFalse: false,
         allongeFalseAssisTrue: false,
-        serie: 0,
-        hasTruePractice: false,
         serieIncremented: false,
+        conditionsMet: false,
+        vieDecremented: false,
       }
     }
 
@@ -89,50 +89,42 @@ const applySerieLogic = sessionData => {
     }
 
     if (
-      //   !dateInfo.serieIncremented &&
       (dateInfo.level1Count >= 2 || dateInfo.level2Count >= 1) &&
       (dateInfo.allongeTrueAssisTrue ||
         (dateInfo.allongeTrueAssisFalse && dateInfo.allongeFalseAssisTrue))
     ) {
-      dateInfo.hasTruePractice = true
-      //   dateInfo.serieIncremented = true
-    } else {
-      dateInfo.hasTruePractice = false
+      dateInfo.conditionsMet = true
     }
-  })
 
-  // Deuxième passe pour appliquer la logique de série
-  return sessionData.map((item, index, arr) => {
-    const date = item.formattedDate
-    if (!date) return { ...item, pratique: false, serie: 0 }
+    if (index > 0) {
+      const previousDate = sessionData[index - 1].formattedDate
+      const previousDateInfo = datesMap[previousDate]
 
-    const dateInfo = datesMap[date]
-    pratique = dateInfo.hasTruePractice
-    if (pratique) {
-      if (index > 0 && arr[index - 1] && arr[index - 1].formattedDate) {
-        if (!dateInfo.serieIncremented) {
-          const previousDate = arr[index - 1].formattedDate
-          const previousDateObj = new Date(previousDate.split("/").reverse().join("-"))
-          const currentDateObj = new Date(date.split("/").reverse().join("-"))
-          const differenceInDays = (currentDateObj - previousDateObj) / 86400000
-
-          if (differenceInDays === 1) {
-            serie += 1
-            dateInfo.serieIncremented = true
-          } else {
-            serie = 0
-          }
-        }
-      } else {
-        serie = 0
+      if (
+        previousDateInfo &&
+        previousDateInfo.conditionsMet &&
+        dateInfo.conditionsMet &&
+        !dateInfo.serieIncremented
+      ) {
+        serie += 1
+        dateInfo.serieIncremented = true // Reset to avoid multiple increments on the same day
       }
-    } else {
-      serie = 0
     }
 
-    datesMap[date].serie = serie
+    if (
+      !dateInfo.conditionsMet &&
+      !dateInfo.vieDecremented &&
+      (index === sessionData.length - 1 || sessionData[index + 1].formattedDate !== date)
+    ) {
+      vie -= 1 // Perd une vie si les conditions ne sont pas remplies
+      if (vie <= 0) {
+        serie = 0 // Réinitialise la série si toutes les vie sont perdues
+        vie = 2 // Réinitialise les vie à 2
+      }
+      dateInfo.vieDecremented = true // Empêche les vies d'être diminuées plusieurs fois dans la même journée
+    }
 
-    return { ...item, pratique, serie }
+    return { ...item, vie, serie }
   })
 }
 
@@ -143,7 +135,7 @@ Object.keys(groupedData).forEach(sessionID => {
   groupedData[sessionID] = updatedSessionData
 })
 
-let csvContent = "Date,Niveau,Allonge,Assis,SessionID,formattedDate,pratique,serie\n"
+let csvContent = "Date,Niveau,Allonge,Assis,SessionID,formattedDate,vie,serie\n"
 
 Object.keys(groupedData).forEach(sessionID => {
   const sessionData = groupedData[sessionID]
@@ -156,7 +148,7 @@ Object.keys(groupedData).forEach(sessionID => {
       item.Assis,
       item.SessionID,
       item.formattedDate,
-      item.pratique,
+      item.vie,
       item.serie,
     ].join(",")
     csvContent += row + "\n"
